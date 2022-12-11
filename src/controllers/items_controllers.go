@@ -1,12 +1,15 @@
 package controllers
 
 import (
+	"encoding/json"
+	"io/ioutil"
 	"net/http"
 
 	"github.com/istomin10593/bookstore_items-api/src/domain/items"
 	service "github.com/istomin10593/bookstore_items-api/src/services"
 	"github.com/istomin10593/bookstore_items-api/src/utils/http_utils"
 	"github.com/istomin10593/bookstore_oauth-go/oauth"
+	"github.com/istomin10593/bookstore_utils-go/rest_errors"
 )
 
 var (
@@ -21,18 +24,33 @@ type itemsControllerInterface interface {
 type itemsController struct{}
 
 func (c *itemsController) Create(w http.ResponseWriter, r *http.Request) {
-	if err := oauth.AuthenticateRequest(r); err != nil {
-		http_utils.ResponseError(w, err)
+	if oauthErr := oauth.AuthenticateRequest(r); oauthErr != nil {
+		http_utils.ResponseError(w, oauthErr)
 		return
 	}
 
-	item := items.Item{
-		Seller: oauth.GetCallerId(r),
+	requestBody, err := ioutil.ReadAll(r.Body)
+
+	if err != nil {
+		restErr := rest_errors.NewRestError("invalid request body", http.StatusBadRequest, "invalid request body", []interface{}{err})
+		http_utils.ResponseError(w, restErr)
+		return
+	}
+	defer r.Body.Close()
+
+	var itemRequest items.Item
+
+	if err := json.Unmarshal(requestBody, &itemRequest); err != nil {
+		restErr := rest_errors.NewRestError("invalid item json body", http.StatusBadRequest, "invalid item json body", []interface{}{err})
+		http_utils.ResponseError(w, restErr)
+		return
 	}
 
-	result, err := service.ItemsService.Create(item)
-	if err != nil {
-		http_utils.ResponseError(w, err)
+	itemRequest.Seller = oauth.GetClientId(r)
+
+	result, saveErr := service.ItemsService.Create(itemRequest)
+	if saveErr != nil {
+		http_utils.ResponseError(w, saveErr)
 		return
 	}
 
