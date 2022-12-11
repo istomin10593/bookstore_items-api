@@ -29,8 +29,14 @@ func (c *itemsController) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	requestBody, err := ioutil.ReadAll(r.Body)
+	sellerId := oauth.GetCallerId(r)
+	if sellerId == 0 {
+		restErr := rest_errors.NewUnauthorizedError("unable to retrieve user information from given access_token")
+		http_utils.ResponseError(w, restErr)
+		return
+	}
 
+	requestBody, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		restErr := rest_errors.NewRestError("invalid request body", http.StatusBadRequest, "invalid request body", []interface{}{err})
 		http_utils.ResponseError(w, restErr)
@@ -46,7 +52,7 @@ func (c *itemsController) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	itemRequest.Seller = oauth.GetClientId(r)
+	itemRequest.Seller = sellerId
 
 	result, saveErr := service.ItemsService.Create(itemRequest)
 	if saveErr != nil {
