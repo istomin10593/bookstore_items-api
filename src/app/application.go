@@ -6,6 +6,7 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/istomin10593/bookstore_items-api/src/clients/elasticsearch"
+	"github.com/istomin10593/bookstore_utils-go/logger"
 )
 
 var (
@@ -19,7 +20,7 @@ func StartApplication() {
 
 	srv := &http.Server{
 		Handler:      router,
-		Addr:         "localhost:8080",
+		Addr:         "localhost:8083",
 		WriteTimeout: 500 * time.Millisecond,
 		ReadTimeout:  2 * time.Second,
 		IdleTimeout:  60 * time.Second,
@@ -28,4 +29,6 @@ func StartApplication() {
 	if err := srv.ListenAndServe(); err != nil {
 		panic(err)
 	}
+
+	logger.Info("about to start the application")
 }
