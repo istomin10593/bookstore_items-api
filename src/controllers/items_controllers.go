@@ -24,9 +24,31 @@ type itemsControllerInterface interface {
 	Get(http.ResponseWriter, *http.Request)
 	Search(http.ResponseWriter, *http.Request)
 	Update(http.ResponseWriter, *http.Request)
+	Delete(http.ResponseWriter, *http.Request)
 }
 
 type itemsController struct{}
+
+func getId(r *http.Request) string {
+	vars := mux.Vars(r)
+	return strings.TrimSpace(vars["id"])
+}
+
+func unmarshalRequest(w http.ResponseWriter, r *http.Request, result interface{}) {
+	requestBody, err := io.ReadAll(r.Body)
+	if err != nil {
+		restErr := rest_errors.NewRestError("invalid request body", http.StatusBadRequest, "invalid request body", []interface{}{err})
+		http_utils.ResponseError(w, restErr)
+		return
+	}
+	defer r.Body.Close()
+
+	if err := json.Unmarshal(requestBody, &result); err != nil {
+		restErr := rest_errors.NewRestError("invalid item json body", http.StatusBadRequest, "invalid item json body", []interface{}{err})
+		http_utils.ResponseError(w, restErr)
+		return
+	}
+}
 
 func (c *itemsController) Create(w http.ResponseWriter, r *http.Request) {
 	if oauthErr := oauth.AuthenticateRequest(r); oauthErr != nil {
@@ -41,21 +63,8 @@ func (c *itemsController) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	requestBody, err := io.ReadAll(r.Body)
-	if err != nil {
-		restErr := rest_errors.NewRestError("invalid request body", http.StatusBadRequest, "invalid request body", []interface{}{err})
-		http_utils.ResponseError(w, restErr)
-		return
-	}
-	defer r.Body.Close()
-
 	var itemRequest items.Item
-
-	if err := json.Unmarshal(requestBody, &itemRequest); err != nil {
-		restErr := rest_errors.NewRestError("invalid item json body", http.StatusBadRequest, "invalid item json body", []interface{}{err})
-		http_utils.ResponseError(w, restErr)
-		return
-	}
+	unmarshalRequest(w, r, &itemRequest)
 
 	itemRequest.Seller = sellerId
 
@@ -69,8 +78,7 @@ func (c *itemsController) Create(w http.ResponseWriter, r *http.Request) {
 }
 
 func (c *itemsController) Get(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	itemId := strings.TrimSpace(vars["id"])
+	itemId := getId(r)
 
 	item, err := service.ItemsService.Get(itemId)
 	if err != nil {
@@ -82,20 +90,8 @@ func (c *itemsController) Get(w http.ResponseWriter, r *http.Request) {
 }
 
 func (c *itemsController) Search(w http.ResponseWriter, r *http.Request) {
-	bytes, err := io.ReadAll(r.Body)
-	if err != nil {
-		apiErr := rest_errors.NewBadRequestError("invalid json body")
-		http_utils.ResponseError(w, apiErr)
-		return
-	}
-	defer r.Body.Close()
-
 	var query queries.EsQuery
-	if err := json.Unmarshal(bytes, &query); err != nil {
-		apiErr := rest_errors.NewBadRequestError("invalid json")
-		http_utils.ResponseError(w, apiErr)
-		return
-	}
+	unmarshalRequest(w, r, &query)
 
 	items, searchErr := service.ItemsService.Search(query)
 	if searchErr != nil {
@@ -112,9 +108,7 @@ func (c *itemsController) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	vars := mux.Vars(r)
-
-	itemId := strings.TrimSpace(vars["id"])
+	itemId := getId(r)
 
 	sellerId := oauth.GetCallerId(r)
 	if sellerId == 0 {
@@ -123,21 +117,8 @@ func (c *itemsController) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	requestBody, err := io.ReadAll(r.Body)
-	if err != nil {
-		restErr := rest_errors.NewRestError("invalid request body", http.StatusBadRequest, "invalid request body", []interface{}{err})
-		http_utils.ResponseError(w, restErr)
-		return
-	}
-	defer r.Body.Close()
-
 	var itemRequest items.Item
-
-	if err := json.Unmarshal(requestBody, &itemRequest); err != nil {
-		restErr := rest_errors.NewRestError("invalid item json body", http.StatusBadRequest, "invalid item json body", []interface{}{err})
-		http_utils.ResponseError(w, restErr)
-		return
-	}
+	unmarshalRequest(w, r, &itemRequest)
 
 	itemRequest.Seller = sellerId
 	itemRequest.Id = itemId
@@ -149,4 +130,15 @@ func (c *itemsController) Update(w http.ResponseWriter, r *http.Request) {
 	}
 
 	http_utils.ResponseJson(w, http.StatusOK, result)
+}
+
+func (c *itemsController) Delete(w http.ResponseWriter, r *http.Request) {
+	itemId := getId(r)
+
+	if err := service.ItemsService.Delete(itemId); err != nil {
+		http_utils.ResponseError(w, err)
+		return
+	}
+
+	http_utils.ResponseJson(w, http.StatusOK, map[string]string{"status": "deleted"})
 }

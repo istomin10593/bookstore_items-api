@@ -19,6 +19,7 @@ type esClientInterface interface {
 	Get(string, string) (*elastic.GetResult, error)
 	Search(string, elastic.Query) (*elastic.SearchResult, error)
 	Update(string, string, interface{}) error
+	Delete(string, string) error
 }
 
 type esClient struct {
@@ -102,6 +103,20 @@ func (c *esClient) Update(index string, id string, doc interface{}) error {
 		Do(ctx)
 	if err != nil {
 		logger.Error(fmt.Sprintf("error when trying to update document with id %s", id), err)
+		return err
+	}
+
+	return nil
+}
+
+func (c *esClient) Delete(index string, id string) error {
+	ctx := context.Background()
+	_, err := c.client.Delete().
+		Index(index).
+		Id(id).
+		Do(ctx)
+	if err != nil {
+		logger.Error(fmt.Sprintf("error when trying to delete id %s", id), err)
 		return err
 	}
 

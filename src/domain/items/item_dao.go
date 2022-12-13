@@ -88,3 +88,14 @@ func (i *Item) Update() rest_errors.RestErr {
 
 	return nil
 }
+
+func (i *Item) Delete() rest_errors.RestErr {
+	if err := elasticsearch.Client.Delete(indexItems, i.Id); err != nil {
+		if strings.Contains(err.Error(), "404") {
+			return rest_errors.NewNotFoundError(fmt.Sprintf("item with id %s doesn't exist", i.Id))
+		}
+		return rest_errors.NewInternalServerError(fmt.Sprintf("error when trying to delete id %s", i.Id), errors.New("database error"))
+	}
+
+	return nil
+}
