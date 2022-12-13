@@ -1,5 +1,9 @@
 package items
 
+import (
+	"github.com/istomin10593/bookstore_utils-go/rest_errors"
+)
+
 type Item struct {
 	Id                string      `json:"id"`
 	Seller            int64       `json:"seller"`
@@ -21,4 +25,20 @@ type Description struct {
 type Picture struct {
 	Id  int64  `json:"id"`
 	Url string `json:"url"`
+}
+
+func (i *Item) Validate() rest_errors.RestErr {
+	if i.Title == "" {
+		return rest_errors.NewBadRequestError("invalid book title")
+	}
+	if i.Descripton.PlaintText == "" {
+		return rest_errors.NewBadRequestError("invalid book plaint text")
+	}
+	if i.Price <= 0 {
+		return rest_errors.NewBadRequestError("invalid book price")
+	}
+	if i.Status == "" {
+		return rest_errors.NewBadRequestError("invalid book status")
+	}
+	return nil
 }

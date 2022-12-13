@@ -16,6 +16,10 @@ const (
 )
 
 func (i *Item) Save() rest_errors.RestErr {
+	if err := i.Validate(); err != nil {
+		return err
+	}
+
 	result, err := elasticsearch.Client.Index(indexItems, i)
 	if err != nil {
 		return rest_errors.NewInternalServerError("errors when trying to save item", errors.New("database error"))
@@ -72,4 +76,15 @@ func (i *Item) Search(query queries.EsQuery) ([]Item, rest_errors.RestErr) {
 		return nil, rest_errors.NewNotFoundError("no items found matching given criteria")
 	}
 	return items, nil
+}
+
+func (i *Item) Update() rest_errors.RestErr {
+	if err := elasticsearch.Client.Update(indexItems, i.Id, i); err != nil {
+		if strings.Contains(err.Error(), "404") {
+			return rest_errors.NewNotFoundError(fmt.Sprintf("not item found and update with id %s", i.Id))
+		}
+		return rest_errors.NewInternalServerError(fmt.Sprintf("error when trying to update id %s", i.Id), errors.New("database error"))
+	}
+
+	return nil
 }

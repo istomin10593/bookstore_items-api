@@ -23,6 +23,7 @@ type itemsControllerInterface interface {
 	Create(http.ResponseWriter, *http.Request)
 	Get(http.ResponseWriter, *http.Request)
 	Search(http.ResponseWriter, *http.Request)
+	Update(http.ResponseWriter, *http.Request)
 }
 
 type itemsController struct{}
@@ -103,4 +104,49 @@ func (c *itemsController) Search(w http.ResponseWriter, r *http.Request) {
 	}
 
 	http_utils.ResponseJson(w, http.StatusOK, items)
+}
+
+func (c *itemsController) Update(w http.ResponseWriter, r *http.Request) {
+	if oauthErr := oauth.AuthenticateRequest(r); oauthErr != nil {
+		http_utils.ResponseError(w, oauthErr)
+		return
+	}
+
+	vars := mux.Vars(r)
+
+	itemId := strings.TrimSpace(vars["id"])
+
+	sellerId := oauth.GetCallerId(r)
+	if sellerId == 0 {
+		restErr := rest_errors.NewUnauthorizedError("unable to retrieve user information from given access_token")
+		http_utils.ResponseError(w, restErr)
+		return
+	}
+
+	requestBody, err := io.ReadAll(r.Body)
+	if err != nil {
+		restErr := rest_errors.NewRestError("invalid request body", http.StatusBadRequest, "invalid request body", []interface{}{err})
+		http_utils.ResponseError(w, restErr)
+		return
+	}
+	defer r.Body.Close()
+
+	var itemRequest items.Item
+
+	if err := json.Unmarshal(requestBody, &itemRequest); err != nil {
+		restErr := rest_errors.NewRestError("invalid item json body", http.StatusBadRequest, "invalid item json body", []interface{}{err})
+		http_utils.ResponseError(w, restErr)
+		return
+	}
+
+	itemRequest.Seller = sellerId
+	itemRequest.Id = itemId
+
+	result, uptErr := service.ItemsService.Update(itemRequest)
+	if uptErr != nil {
+		http_utils.ResponseError(w, uptErr)
+		return
+	}
+
+	http_utils.ResponseJson(w, http.StatusOK, result)
 }
